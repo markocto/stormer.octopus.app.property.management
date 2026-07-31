@@ -1,7 +1,7 @@
 step "deploy-scheduled-jobs-windows-service" {
     name = "Deploy Scheduled Jobs Windows Service"
     properties = {
-        Octopus.Action.TargetRoles = "fm-scheduled-jobs"
+        Octopus.Action.TargetRoles = "prop-man"
     }
 
     action "deploy-worker-package" {
@@ -12,6 +12,7 @@ step "deploy-scheduled-jobs-windows-service" {
             Octopus.Action.Package.DownloadOnTentacle = "False"
             Octopus.Action.Package.FeedId = "octopus-server-built-in"
             Octopus.Action.Package.PackageId = "ScheduledJobs.Worker"
+            Octopus.Action.RunOnServer = "false"
             Octopus.Action.WindowsService.CreateOrUpdateService = "True"
             Octopus.Action.WindowsService.Description = "Runs FM scheduling, reporting and maintenance jobs"
             Octopus.Action.WindowsService.DisplayName = "Bellrock Scheduled Jobs Worker"
@@ -36,13 +37,14 @@ step "deploy-scheduled-jobs-windows-service" {
 step "verify-service-running" {
     name = "Verify Service Running"
     properties = {
-        Octopus.Action.TargetRoles = "fm-scheduled-jobs"
+        Octopus.Action.TargetRoles = "prop-man"
     }
 
     action "check-service-status" {
         action_type = "Octopus.Script"
         name = "Check service status"
         properties = {
+            Octopus.Action.RunOnServer = "false"
             Octopus.Action.Script.ScriptBody = <<-EOT
                 $svc = Get-Service -Name 'BellrockScheduledJobsWorker' -ErrorAction SilentlyContinue
                 if ($null -eq $svc) { throw "Service not found" }
