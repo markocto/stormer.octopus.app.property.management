@@ -1,0 +1,56 @@
+step "deploy-scheduled-jobs-windows-service" {
+    name = "Deploy Scheduled Jobs Windows Service"
+    properties = {
+        Octopus.Action.TargetRoles = "fm-scheduled-jobs"
+    }
+
+    action "deploy-worker-package" {
+        action_type = "Octopus.TentaclePackage"
+        name = "Deploy worker package"
+        properties = {
+            Octopus.Action.EnabledFeatures = "Octopus.Features.WindowsService,Octopus.Features.ConfigurationVariables"
+            Octopus.Action.Package.DownloadOnTentacle = "False"
+            Octopus.Action.Package.FeedId = "octopus-server-built-in"
+            Octopus.Action.Package.PackageId = "ScheduledJobs.Worker"
+            Octopus.Action.WindowsService.CreateOrUpdateService = "True"
+            Octopus.Action.WindowsService.Description = "Runs FM scheduling, reporting and maintenance jobs"
+            Octopus.Action.WindowsService.DisplayName = "Bellrock Scheduled Jobs Worker"
+            Octopus.Action.WindowsService.ServiceAccount = "LocalSystem"
+            Octopus.Action.WindowsService.ServiceName = "BellrockScheduledJobsWorker"
+            Octopus.Action.WindowsService.StartMode = "auto"
+        }
+
+        packages {
+            acquisition_location = "Server"
+            feed = "octopus-server-built-in"
+            package_id = "ScheduledJobs.Worker"
+            properties = {
+                Extract = "True"
+                Purpose = ""
+                SelectionMode = "immediate"
+            }
+        }
+    }
+}
+
+step "verify-service-running" {
+    name = "Verify Service Running"
+    properties = {
+        Octopus.Action.TargetRoles = "fm-scheduled-jobs"
+    }
+
+    action "check-service-status" {
+        action_type = "Octopus.Script"
+        name = "Check service status"
+        properties = {
+            Octopus.Action.Script.ScriptBody = <<-EOT
+                $svc = Get-Service -Name 'BellrockScheduledJobsWorker' -ErrorAction SilentlyContinue
+                if ($null -eq $svc) { throw "Service not found" }
+                if ($svc.Status -ne 'Running') { throw "Service is not running: $($svc.Status)" }
+                Write-Host "Service is running"
+                EOT
+            Octopus.Action.Script.ScriptSource = "Inline"
+            Octopus.Action.Script.Syntax = "PowerShell"
+        }
+    }
+}
