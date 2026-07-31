@@ -1,7 +1,7 @@
 step "deploy-fm-portal-to-iis" {
     name = "Deploy FM Portal to IIS"
     properties = {
-        Octopus.Action.TargetRoles = "fm-portal-web"
+        Octopus.Action.TargetRoles = "prop-man"
     }
 
     action "deploy-fm-portal-package" {
@@ -17,6 +17,7 @@ step "deploy-fm-portal-to-iis" {
             Octopus.Action.Package.DownloadOnTentacle = "False"
             Octopus.Action.Package.FeedId = "octopus-server-built-in"
             Octopus.Action.Package.PackageId = "FMPortal.Web"
+            Octopus.Action.RunOnServer = "false"
         }
 
         packages {
@@ -35,13 +36,14 @@ step "deploy-fm-portal-to-iis" {
 step "run-database-migrations" {
     name = "Run Database Migrations"
     properties = {
-        Octopus.Action.TargetRoles = "fm-portal-web"
+        Octopus.Action.TargetRoles = "prop-man"
     }
 
     action "apply-tenant-database-migrations" {
         action_type = "Octopus.Script"
         name = "Apply tenant database migrations"
         properties = {
+            Octopus.Action.RunOnServer = "false"
             Octopus.Action.Script.ScriptBody = <<-EOT
                 # Placeholder migration step
                 Write-Host "Applying migrations for tenant: $OctopusParameters['Octopus.Deployment.Tenant.Name']"
@@ -57,13 +59,14 @@ step "run-database-migrations" {
 step "smoke-test" {
     name = "Smoke Test"
     properties = {
-        Octopus.Action.TargetRoles = "fm-portal-web"
+        Octopus.Action.TargetRoles = "prop-man"
     }
 
     action "verify-site-responds" {
         action_type = "Octopus.Script"
         name = "Verify site responds"
         properties = {
+            Octopus.Action.RunOnServer = "false"
             Octopus.Action.Script.ScriptBody = <<-EOT
                 $url = "http://#{Tenant.Hostname}/health"
                 Write-Host "Checking $url"
