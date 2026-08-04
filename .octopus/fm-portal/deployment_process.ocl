@@ -52,12 +52,12 @@ step "run-database-migrations" {
         properties = {
             Octopus.Action.RunOnServer = "false"
             Octopus.Action.Script.ScriptBody = <<-EOT
-                $connectionString = "Server=localhost\\SQLEXPRESS;Database=Trident;Integrated Security=True;TrustServerCertificate=True;"
+                $connectionString = "#{Database.ConnectionString}"
                 
                 # 1. Run DbUp migrations against the shared demo database
                 $exeDir = $OctopusParameters["Octopus.Action.Package[TridentDbUp].ExtractedPath"]
                 $exePath = Join-Path $exeDir "Trident.Database.DbUp.exe"
-                Write-Host "Running DbUp against $connectionString"
+                Write-Host "Running DbUp against SQLEXPRESS"
                 $output = & $exePath --ConnectionString="$connectionString" 2>&1 | Out-String
                 Write-Host $output
                 if ($output -notmatch "Success!") {
