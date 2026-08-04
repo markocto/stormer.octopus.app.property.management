@@ -43,7 +43,7 @@ step "deploy-fm-portal-to-iis" {
 step "run-database-migrations" {
     name = "Run Database Migrations"
     properties = {
-        Octopus.Action.TargetRoles = "prop-man"
+        Octopus.Action.TargetRoles = "prop-man-db"
     }
 
     action "apply-tenant-database-migrations" {
