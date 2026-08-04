@@ -75,7 +75,8 @@ step "smoke-test" {
         properties = {
             Octopus.Action.RunOnServer = "false"
             Octopus.Action.Script.ScriptBody = <<-EOT
-                $url = "http://#{Tenant.Hostname}/health"
+                $hostname = "#{if Tenant.Name}#{Tenant.Hostname}#{else}localhost#{/if}"
+                $url = "http://$hostname/health"
                 Write-Host "Checking $url"
                 try {
                   $response = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 30
