@@ -1,3 +1,41 @@
+step "deploy-database" {
+    name = "Deploy Database"
+    properties = {
+        Octopus.Action.TargetRoles = "prop-man"
+    }
+
+    action "run-dbup-database-migration" {
+        action_type = "Octopus.Script"
+        name = "Run DbUp Database Migration"
+        properties = {
+            Octopus.Action.Script.ScriptBody = <<-EOT
+                $exeDir = $OctopusParameters["Octopus.Action.Package[TridentDbUp].ExtractedPath"]
+                $exePath = Join-Path $exeDir "Trident.Database.DbUp.exe"
+                $connectionString = "Server=localhost\SQLEXPRESS;Database=Trident;Integrated Security=True;TrustServerCertificate=True;"
+                Write-Host "Running DbUp against $connectionString"
+                $output = & $exePath --ConnectionString="$connectionString" 2>&1 | Out-String
+                Write-Host $output
+                if ($output -notmatch "Success!") {
+                  throw "Database migration did not report success. Output: $output"
+                }
+                EOT
+            Octopus.Action.Script.ScriptSource = "Inline"
+            Octopus.Action.Script.Syntax = "PowerShell"
+        }
+
+        packages "TridentDbUp" {
+            acquisition_location = "Server"
+            feed = "octopus-server-built-in"
+            package_id = "Trident.Database.DbUp"
+            properties = {
+                Extract = "True"
+                Purpose = ""
+                SelectionMode = "immediate"
+            }
+        }
+    }
+}
+
 step "deploy-fm-portal-to-iis" {
     name = "Deploy FM Portal to IIS"
     properties = {
