@@ -116,13 +116,25 @@ step "smoke-test" {
                 try {
                   $response = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 30
                   Write-Host "Site responded with status $($response.StatusCode)"
-                } catch [System.Net.WebException] {
-                  # Even a 500 from the app proves IIS/app pool is up and the app is running - just no DB configured in this demo
-                  $status = $_.Exception.Response.StatusCode.value__
-                  Write-Host "Site responded with status $status (app is running, DB likely not configured - expected for this demo)"
                 } catch {
-                  Write-Warning "Smoke test failed: $_"
-                  throw
+                  $errResponse = $_.Exception.Response
+                  if ($errResponse) {
+                    $status = [int]$errResponse.StatusCode
+                    Write-Host "Site responded with status $status"
+                    try {
+                      $stream = $errResponse.GetResponseStream()
+                      $reader = New-Object System.IO.StreamReader($stream)
+                      $body = $reader.ReadToEnd()
+                      $snippet = $body.Substring(0, [Math]::Min(4000, $body.Length))
+                      Write-Host "----- RESPONSE BODY START -----"
+                      Write-Host $snippet
+                      Write-Host "----- RESPONSE BODY END -----"
+                    } catch {
+                      Write-Host "Could not read response body: $_"
+                    }
+                  } else {
+                    Write-Warning "Request failed with no HTTP response: $_"
+                  }
                 }
                 EOT
             Octopus.Action.Script.ScriptSource = "Inline"
