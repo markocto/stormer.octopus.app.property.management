@@ -110,48 +110,29 @@ step "diagnose-iis-startup" {
         properties = {
             Octopus.Action.RunOnServer = "false"
             Octopus.Action.Script.ScriptBody = <<-EOT
-                $siteName = "#{if Tenant.Name}#{Tenant.Name} - FM Portal#{else}FM Portal - Shared#{/if}"
-                $poolName = "#{if Tenant.Name}#{Tenant.Name} - FM Portal Pool#{else}FM Portal - Shared Pool#{/if}"
-                Import-Module WebAdministration
-                
-                $physicalPath = (Get-Item "IIS:\Sites\$siteName").PhysicalPath
-                Write-Host "Physical path: $physicalPath"
-                $webConfigPath = Join-Path $physicalPath "web.config"
-                
-                # Plain text substitution to avoid re-serializing/re-encoding the file via XmlDocument
-                $content = Get-Content $webConfigPath -Raw
-                if ($content -match 'stdoutLogEnabled="false"') {
-                  $content = $content -replace 'stdoutLogEnabled="false"', 'stdoutLogEnabled="true"'
-                  $utf8NoBom = New-Object System.Text.UTF8Encoding($true)
-                  [System.IO.File]::WriteAllText($webConfigPath, $content, $utf8NoBom)
-                  Write-Host "stdoutLogEnabled flipped to true via text replace"
+                Write-Host "----- Checking for ASP.NET Core Module registration -----"
+                $modules = Get-WebGlobalModule | Where-Object { $_.Name -like "*AspNetCore*" }
+                if ($modules) {
+                  $modules | ForEach-Object { Write-Host "Found module: $($_.Name) -> $($_.Image)" }
                 } else {
-                  Write-Host "stdoutLogEnabled=false not found - leaving web.config untouched"
+                  Write-Host "NO AspNetCore modules registered in IIS global modules list."
                 }
                 
-                $logsDir = Join-Path $physicalPath "logs"
-                if (-not (Test-Path $logsDir)) { New-Item -ItemType Directory -Path $logsDir | Out-Null }
-                
-                Stop-WebAppPool -Name $poolName
-                Start-Sleep -Seconds 3
-                Start-WebAppPool -Name $poolName
-                Start-Sleep -Seconds 5
-                
+                Write-Host "----- Checking installed .NET Hosting Bundle / runtimes -----"
                 try {
-                  $r = Invoke-WebRequest -Uri "http://localhost/" -UseBasicParsing -TimeoutSec 15
-                  Write-Host "Request status: $($r.StatusCode)"
+                  $dotnetInfo = & dotnet --list-runtimes 2>&1 | Out-String
+                  Write-Host $dotnetInfo
                 } catch {
-                  Write-Host "Request failed (expected if still crashing): $_"
+                  Write-Host "dotnet command not found or failed: $_"
                 }
-                Start-Sleep -Seconds 3
                 
-                $logFile = Get-ChildItem $logsDir -Filter "stdout*" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-                if ($logFile) {
-                  Write-Host "----- STDOUT LOG START ($($logFile.Name)) -----"
-                  Get-Content $logFile.FullName -Raw | Write-Host
-                  Write-Host "----- STDOUT LOG END -----"
-                } else {
-                  Write-Host "No stdout log file found in $logsDir"
+                Write-Host "----- Checking for hostfxr / ANCM native dll on disk -----"
+                $candidatePaths = @(
+                  "C:\Program Files\IIS\Asp.Net Core Module\V2\aspnetcorev2.dll",
+                  "C:\Windows\System32\inetsrv\aspnetcorev2.dll"
+                )
+                foreach ($p in $candidatePaths) {
+                  if (Test-Path $p) { Write-Host "EXISTS: $p" } else { Write-Host "MISSING: $p" }
                 }
                 EOT
             Octopus.Action.Script.ScriptSource = "Inline"
