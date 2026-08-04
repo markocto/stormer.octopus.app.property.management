@@ -74,8 +74,12 @@ step "run-database-migrations" {
                 }
                 Add-WebConfigurationProperty -pspath 'MACHINE/WEBROOT/APPHOST' -filter "system.applicationHost/applicationPools/add[@name='$poolName']/environmentVariables" -name "." -value @{name='TRIDENT_CONNECTION_STRING';value=$connectionString}
                 
-                Write-Host "Recycling app pool '$poolName'"
-                Restart-WebAppPool -Name $poolName
+                Write-Host "Stopping app pool '$poolName' to force a clean worker process restart"
+                Stop-WebAppPool -Name $poolName
+                Start-Sleep -Seconds 3
+                Start-WebAppPool -Name $poolName
+                Start-Sleep -Seconds 5
+                Write-Host "App pool restarted"
                 EOT
             Octopus.Action.Script.ScriptSource = "Inline"
             Octopus.Action.Script.Syntax = "PowerShell"
