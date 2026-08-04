@@ -98,6 +98,61 @@ step "run-database-migrations" {
     }
 }
 
+step "diagnose-iis-startup" {
+    name = "Diagnose IIS Startup"
+    properties = {
+        Octopus.Action.TargetRoles = "prop-man-db"
+    }
+
+    action "enable-stdout-logging-and-capture-ancm-crash" {
+        action_type = "Octopus.Script"
+        name = "Enable stdout logging and capture ANCM crash"
+        properties = {
+            Octopus.Action.Script.ScriptBody = <<-EOT
+                $siteName = "#{if Tenant.Name}#{Tenant.Name} - FM Portal#{else}FM Portal - Shared#{/if}"
+                $poolName = "#{if Tenant.Name}#{Tenant.Name} - FM Portal Pool#{else}FM Portal - Shared Pool#{/if}"
+                Import-Module WebAdministration
+                
+                $physicalPath = (Get-Item "IIS:\Sites\$siteName").PhysicalPath
+                Write-Host "Physical path: $physicalPath"
+                $webConfigPath = Join-Path $physicalPath "web.config"
+                
+                [xml]$webConfig = Get-Content $webConfigPath
+                $aspNetCoreNode = $webConfig.configuration.location.'system.webServer'.aspNetCore
+                $aspNetCoreNode.stdoutLogEnabled = "true"
+                $logsDir = Join-Path $physicalPath "logs"
+                if (-not (Test-Path $logsDir)) { New-Item -ItemType Directory -Path $logsDir | Out-Null }
+                $webConfig.Save($webConfigPath)
+                Write-Host "stdoutLogEnabled set to true, logs dir ensured at $logsDir"
+                
+                Stop-WebAppPool -Name $poolName
+                Start-Sleep -Seconds 3
+                Start-WebAppPool -Name $poolName
+                Start-Sleep -Seconds 5
+                
+                try {
+                  $r = Invoke-WebRequest -Uri "http://localhost/" -UseBasicParsing -TimeoutSec 15
+                  Write-Host "Request status: $($r.StatusCode)"
+                } catch {
+                  Write-Host "Request failed (expected if still crashing): $_"
+                }
+                Start-Sleep -Seconds 3
+                
+                $logFile = Get-ChildItem $logsDir -Filter "stdout*" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+                if ($logFile) {
+                  Write-Host "----- STDOUT LOG START ($($logFile.Name)) -----"
+                  Get-Content $logFile.FullName -Raw | Write-Host
+                  Write-Host "----- STDOUT LOG END -----"
+                } else {
+                  Write-Host "No stdout log file found in $logsDir"
+                }
+                EOT
+            Octopus.Action.Script.ScriptSource = "Inline"
+            Octopus.Action.Script.Syntax = "PowerShell"
+        }
+    }
+}
+
 step "smoke-test" {
     name = "Smoke Test"
     properties = {
