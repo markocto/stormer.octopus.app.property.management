@@ -1,41 +1,3 @@
-step "deploy-database" {
-    name = "Deploy Database"
-    properties = {
-        Octopus.Action.TargetRoles = "prop-man"
-    }
-
-    action "run-dbup-database-migration" {
-        action_type = "Octopus.Script"
-        name = "Run DbUp Database Migration"
-        properties = {
-            Octopus.Action.Script.ScriptBody = <<-EOT
-                $exeDir = $OctopusParameters["Octopus.Action.Package[TridentDbUp].ExtractedPath"]
-                $exePath = Join-Path $exeDir "Trident.Database.DbUp.exe"
-                $connectionString = "Server=localhost\SQLEXPRESS;Database=Trident;Integrated Security=True;TrustServerCertificate=True;"
-                Write-Host "Running DbUp against $connectionString"
-                $output = & $exePath --ConnectionString="$connectionString" 2>&1 | Out-String
-                Write-Host $output
-                if ($output -notmatch "Success!") {
-                  throw "Database migration did not report success. Output: $output"
-                }
-                EOT
-            Octopus.Action.Script.ScriptSource = "Inline"
-            Octopus.Action.Script.Syntax = "PowerShell"
-        }
-
-        packages "TridentDbUp" {
-            acquisition_location = "Server"
-            feed = "octopus-server-built-in"
-            package_id = "Trident.Database.DbUp"
-            properties = {
-                Extract = "True"
-                Purpose = ""
-                SelectionMode = "immediate"
-            }
-        }
-    }
-}
-
 step "deploy-fm-portal-to-iis" {
     name = "Deploy FM Portal to IIS"
     properties = {
@@ -90,13 +52,44 @@ step "run-database-migrations" {
         properties = {
             Octopus.Action.RunOnServer = "false"
             Octopus.Action.Script.ScriptBody = <<-EOT
-                # Placeholder migration step
-                Write-Host "Applying migrations for tenant: $OctopusParameters['Octopus.Deployment.Tenant.Name']"
-                Write-Host "Target environment: $OctopusParameters['Octopus.Environment.Name']"
-                # e.g. invoke DbUp / EF Core migrations bundle here
+                $connectionString = "Server=localhost\\SQLEXPRESS;Database=Trident;Integrated Security=True;TrustServerCertificate=True;"
+                
+                # 1. Run DbUp migrations against the shared demo database
+                $exeDir = $OctopusParameters["Octopus.Action.Package[TridentDbUp].ExtractedPath"]
+                $exePath = Join-Path $exeDir "Trident.Database.DbUp.exe"
+                Write-Host "Running DbUp against $connectionString"
+                $output = & $exePath --ConnectionString="$connectionString" 2>&1 | Out-String
+                Write-Host $output
+                if ($output -notmatch "Success!") {
+                  throw "Database migration did not report success. Output: $output"
+                }
+                
+                # 2. Wire the connection string through to the app pool so Trident.Web (in-process ANCM) can read it
+                $poolName = "#{if Tenant.Name}#{Tenant.Name} - FM Portal Pool#{else}FM Portal - Shared Pool#{/if}"
+                Write-Host "Setting TRIDENT_CONNECTION_STRING on app pool '$poolName'"
+                Import-Module WebAdministration
+                $existing = Get-WebConfigurationProperty -pspath 'MACHINE/WEBROOT/APPHOST' -filter "system.applicationHost/applicationPools/add[@name='$poolName']/environmentVariables" -name "." -ErrorAction SilentlyContinue
+                if ($existing.Collection | Where-Object { $_.name -eq "TRIDENT_CONNECTION_STRING" }) {
+                  Clear-WebConfiguration -pspath 'MACHINE/WEBROOT/APPHOST' -filter "system.applicationHost/applicationPools/add[@name='$poolName']/environmentVariables/add[@name='TRIDENT_CONNECTION_STRING']"
+                }
+                Add-WebConfigurationProperty -pspath 'MACHINE/WEBROOT/APPHOST' -filter "system.applicationHost/applicationPools/add[@name='$poolName']/environmentVariables" -name "." -value @{name='TRIDENT_CONNECTION_STRING';value=$connectionString}
+                
+                Write-Host "Recycling app pool '$poolName'"
+                Restart-WebAppPool -Name $poolName
                 EOT
             Octopus.Action.Script.ScriptSource = "Inline"
             Octopus.Action.Script.Syntax = "PowerShell"
+        }
+
+        packages "TridentDbUp" {
+            acquisition_location = "Server"
+            feed = "octopus-server-built-in"
+            package_id = "Trident.Database.DbUp"
+            properties = {
+                Extract = "True"
+                Purpose = ""
+                SelectionMode = "immediate"
+            }
         }
     }
 }
