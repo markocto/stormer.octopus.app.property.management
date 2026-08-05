@@ -1,3 +1,32 @@
+step "deploy-octofx-database-migrations" {
+    name = "Deploy OctoFX Database Migrations"
+    properties = {
+        Octopus.Action.TargetRoles = "prop-man"
+    }
+
+    action {
+        action_type = "Octopus.TentaclePackage"
+        properties = {
+            Octopus.Action.EnabledFeatures = ",Octopus.Features.ConfigurationTransforms,Octopus.Features.ConfigurationVariables"
+            Octopus.Action.Package.AutomaticallyRunConfigurationTransformationFiles = "True"
+            Octopus.Action.Package.AutomaticallyUpdateAppSettingsAndConnectionStrings = "True"
+            Octopus.Action.Package.DownloadOnTentacle = "False"
+            Octopus.Action.Package.FeedId = "octopus-server-built-in"
+            Octopus.Action.Package.PackageId = "OctoFX.Database"
+        }
+        worker_pool_variable = ""
+
+        packages {
+            acquisition_location = "Server"
+            feed = "octopus-server-built-in"
+            package_id = "OctoFX.Database"
+            properties = {
+                SelectionMode = "immediate"
+            }
+        }
+    }
+}
+
 step "deploy-scheduled-jobs-windows-service" {
     name = "Deploy Scheduled Jobs Windows Service"
     properties = {
@@ -9,6 +38,7 @@ step "deploy-scheduled-jobs-windows-service" {
         name = "Deploy worker package"
         properties = {
             Octopus.Action.EnabledFeatures = "Octopus.Features.WindowsService,Octopus.Features.ConfigurationVariables"
+            Octopus.Action.Package.AutomaticallyUpdateAppSettingsAndConnectionStrings = "True"
             Octopus.Action.Package.DownloadOnTentacle = "False"
             Octopus.Action.Package.FeedId = "octopus-server-built-in"
             Octopus.Action.Package.PackageId = "ScheduledJobs.Worker"
@@ -16,7 +46,7 @@ step "deploy-scheduled-jobs-windows-service" {
             Octopus.Action.WindowsService.CreateOrUpdateService = "True"
             Octopus.Action.WindowsService.Description = "Runs FM scheduling, reporting and maintenance jobs"
             Octopus.Action.WindowsService.DisplayName = "Bellrock Scheduled Jobs Worker"
-            Octopus.Action.WindowsService.ExecutablePath = "ScheduledJobsWorker.exe"
+            Octopus.Action.WindowsService.ExecutablePath = "OctoFX.RateService.exe"
             Octopus.Action.WindowsService.ServiceAccount = "LocalSystem"
             Octopus.Action.WindowsService.ServiceName = "BellrockScheduledJobsWorker"
             Octopus.Action.WindowsService.StartMode = "auto"
