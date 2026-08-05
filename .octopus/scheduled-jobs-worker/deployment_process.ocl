@@ -1,7 +1,7 @@
 step "deploy-octofx-database-migrations" {
     name = "Deploy OctoFX Database Migrations"
     properties = {
-        Octopus.Action.TargetRoles = "prop-man"
+        Octopus.Action.TargetRoles = "prop-man-db"
     }
 
     action {
@@ -13,6 +13,7 @@ step "deploy-octofx-database-migrations" {
             Octopus.Action.Package.DownloadOnTentacle = "False"
             Octopus.Action.Package.FeedId = "octopus-server-built-in"
             Octopus.Action.Package.PackageId = "OctoFX.Database"
+            Octopus.Action.RunOnServer = "false"
         }
         worker_pool_variable = ""
 
