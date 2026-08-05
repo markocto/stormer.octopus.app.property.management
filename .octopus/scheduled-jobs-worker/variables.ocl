@@ -1,0 +1,5 @@
+variable "OctoFXDatabase" {
+    value "Server=localhost\\SQLEXPRESS;Database=OctoFX-Acceptance;Trusted_Connection=True;" {
+        role = ["prop-man"]
+    }
+}
