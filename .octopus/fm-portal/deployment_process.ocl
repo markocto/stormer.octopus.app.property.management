@@ -51,6 +51,7 @@ step "deploy-fm-portal-to-iis" {
 step "run-database-migrations" {
     name = "Run Database Migrations"
     properties = {
+        Octopus.Action.MaxParallelism = "2"
         Octopus.Action.TargetRoles = "prop-man-db"
     }
 
@@ -92,6 +93,7 @@ step "run-database-migrations" {
             Octopus.Action.Script.ScriptSource = "Inline"
             Octopus.Action.Script.Syntax = "PowerShell"
         }
+        tenant_tags = ["Release Rings/Beta", "Release Rings/Production"]
 
         packages "TridentDbUp" {
             acquisition_location = "Server"
