@@ -51,7 +51,6 @@ step "deploy-fm-portal-to-iis" {
 step "run-database-migrations" {
     name = "Run Database Migrations"
     properties = {
-        Octopus.Action.MaxParallelism = "2"
         Octopus.Action.TargetRoles = "prop-man-db"
     }
 
