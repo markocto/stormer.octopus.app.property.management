@@ -1,6 +1,7 @@
 step "deploy-fm-portal-to-iis" {
     name = "Deploy FM Portal to IIS"
     properties = {
+        Octopus.Action.MaxParallelism = "2"
         Octopus.Action.TargetRoles = "prop-man"
     }
 
@@ -15,9 +16,15 @@ step "deploy-fm-portal-to-iis" {
             Octopus.Action.IISWebSite.Bindings = "[{\"protocol\":\"http\",\"port\":\"80\",\"host\":\"#{if Tenant.Hostname}#{Tenant.Hostname}#{else}localhost#{/if}\",\"thumbprint\":null,\"certificateVariable\":null,\"requireSni\":\"False\",\"enabled\":\"True\"}]"
             Octopus.Action.IISWebSite.CreateOrUpdateApplicationPool = "True"
             Octopus.Action.IISWebSite.CreateOrUpdateWebSite = "True"
+            Octopus.Action.IISWebSite.DeploymentType = "webSite"
             Octopus.Action.IISWebSite.EnableAnonymousAuthentication = "True"
             Octopus.Action.IISWebSite.EnableBasicAuthentication = "False"
             Octopus.Action.IISWebSite.EnableWindowsAuthentication = "False"
+            Octopus.Action.IISWebSite.StartApplicationPool = "True"
+            Octopus.Action.IISWebSite.StartWebSite = "True"
+            Octopus.Action.IISWebSite.VirtualDirectory.CreateOrUpdate = "False"
+            Octopus.Action.IISWebSite.WebApplication.CreateOrUpdate = "False"
+            Octopus.Action.IISWebSite.WebRootType = "packageRoot"
             Octopus.Action.IISWebSite.WebSiteName = "#{if Tenant.Name}#{Tenant.Name} - FM Portal#{else}FM Portal - Shared#{/if}"
             Octopus.Action.Package.AutomaticallyRunConfigurationTransformationFiles = "True"
             Octopus.Action.Package.AutomaticallyUpdateAppSettingsAndConnectionStrings = "True"
@@ -26,6 +33,7 @@ step "deploy-fm-portal-to-iis" {
             Octopus.Action.Package.PackageId = "FMPortal.Web"
             Octopus.Action.RunOnServer = "false"
         }
+        tenant_tags = ["Release Rings/Beta", "Release Rings/Production"]
 
         packages {
             acquisition_location = "Server"
